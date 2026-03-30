@@ -1,16 +1,19 @@
-import { useState } from 'react'
-import Login from './Login'
 
-import './App.css'
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import ScolarList from './pages/ScolarList'
+import Login from './pages/Login'
 
 function App() {
   
 
   return (
     <>
-     <div>
-         <Login/> 
-     </div>
+     
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/scolarlist" element={<ScolarList />} />
+      </Routes>
+   
     </>
   )
 }

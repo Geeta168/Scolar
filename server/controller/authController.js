@@ -52,7 +52,7 @@ export const login=async(req,res)=>{
       const {email,password}=req.body;
 
       if(!email || !password){
-        return res.json({success:"false",message:"enter the all information"});
+        return res.json({success:false,message:"enter the all information"});
       }
 
       try{
@@ -77,7 +77,7 @@ export const login=async(req,res)=>{
             {expiresIn:"1h"}
          );
 
-         res.cookie("toekn",token,{
+         res.cookie("token",token,{
             httpOnly:true,secure:process.env.NODE_ENV==="production",
             sameSite:process.env.NODE_ENV==="production"?"none":"strict",
             maxAge:2*24*60*60*1000,
