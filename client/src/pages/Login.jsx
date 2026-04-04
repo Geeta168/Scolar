@@ -34,7 +34,7 @@ const handleSubmit = async (e) => {
             setAuthUser(res.user);
             alert(isLogin ? "Login Successful" : "Registered Successfully");
 
-            navigate("/ScolarList");
+            navigate("/scolarlist");
 
         } else {
             alert(res.message);

@@ -1,5 +1,5 @@
 
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import {Routes, Route } from "react-router-dom";
 import ScolarList from './pages/ScolarList'
 import Login from './pages/Login'
 
@@ -8,17 +8,19 @@ function App() {
 
   return (
     <>
-     
+
       <Routes>
-        <Route path="/login" element={<Login />} />
+        <Route path="/" element={<Login />} />
         <Route path="/scolarlist" element={<ScolarList />} />
       </Routes>
-   
+
     </>
   )
 }
 
 export default App
+
+
 
 
 // import { useState, useRef } from "react";

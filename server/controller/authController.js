@@ -30,7 +30,7 @@ export const register=async(req,res)=>{
         const userId=result.insertId;
 
        const token=jwt.sign(
-        {userId:userId},
+       { userId: userId },  
         process.env.JWT_SECRET,
         {expiresIn:"1h"}
        )
@@ -73,7 +73,7 @@ export const login=async(req,res)=>{
          }
 
          const token=jwt.sign(
-            {userId:user[0].id},
+            {userId:user[0].user_id},
             process.env.JWT_SECRET,
             {expiresIn:"1h"}
          );
@@ -84,7 +84,7 @@ export const login=async(req,res)=>{
             maxAge:2*24*60*60*1000,
          })
 
-            return res.json({success:true,message:"login successfully",token:token,userId:user[0].id})
+            return res.json({success:true,message:"login successfully",token:token,userId:user[0].user_id})
 
       }catch(error){
         return res.json({success:false,message:"server error",error:error.message});

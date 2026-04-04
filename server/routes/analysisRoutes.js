@@ -25,6 +25,10 @@ Return ONLY valid JSON (no markdown, no backticks):
 
 return reasons properly based on the text analysis. Do not return generic reasons. Analyze the text deeply and provide specific reasons for the assigned label.
 
+
+Important:
+- Do NOT give high score for meaningless messages
+
 Message:
 ${text}
 `;
