@@ -227,7 +227,6 @@ const ScolarList = () => {
               </button>
 
             </div>
-
           </div>
         </div>
       )}
