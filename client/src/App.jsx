@@ -2,6 +2,8 @@
 import {Routes, Route } from "react-router-dom";
 import ScolarList from './pages/ScolarList'
 import Login from './pages/Login'
+import LandingPage from './pages/LandingPage'
+import PublicForum from './pages/PublicForum'
 
 function App() {
   
@@ -10,7 +12,9 @@ function App() {
     <>
 
       <Routes>
-        <Route path="/" element={<Login />} />
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/forum" element={<PublicForum />} />
         <Route path="/scolarlist" element={<ScolarList />} />
       </Routes>
 

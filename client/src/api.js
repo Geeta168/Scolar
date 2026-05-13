@@ -46,6 +46,13 @@ export const logoutUser = async () => {
   return res.json();
 };
 
+export const getUserData = async () => {
+  const res = await fetch(`${URL}/auth/user`, {
+    credentials: "include",
+  });
+  return res.json();
+};
+
 export const getPosts = async () => {
   const res = await fetch(`${URL}/posts/all`, {
     credentials: "include",
@@ -91,5 +98,58 @@ export const analyzeText = async (text) => {
     body: JSON.stringify({ text }),
   });
 
+  return res.json();
+};
+
+export const getGuidanceChat = async (postId) => {
+  const res = await fetch(`${URL}/guidance/${postId}`, {
+    credentials: "include",
+  });
+  return res.json();
+};
+
+export const sendGuidanceMessage = async (postId, message) => {
+  const res = await fetch(`${URL}/guidance/${postId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ message }),
+  });
+  return res.json();
+};
+
+// --- DISCUSSION FORUM API ---
+
+export const fetchDiscussions = async () => {
+  const res = await fetch(`${URL}/discussions/all`, {
+    credentials: "include",
+  });
+  return res.json();
+};
+
+export const createDiscussion = async (content, isAnonymous) => {
+  const res = await fetch(`${URL}/discussions/create`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ content, isAnonymous }),
+  });
+  return res.json();
+};
+
+export const fetchDiscussionComments = async (discussionId) => {
+  const res = await fetch(`${URL}/discussions/comments/${discussionId}`, {
+    credentials: "include",
+  });
+  return res.json();
+};
+
+export const createDiscussionComment = async (discussionId, content, isAnonymous) => {
+  const res = await fetch(`${URL}/discussions/comments/${discussionId}/create`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ content, isAnonymous }),
+  });
   return res.json();
 };

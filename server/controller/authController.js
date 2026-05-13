@@ -11,14 +11,19 @@ export const register=async(req,res)=>{
     }
 
     try{
-        const [existsuser]=await pool.query(
-            "SELECT * FROM users WHERE email=?",
-            [email]
-        );
+       const [existingUser] = await pool.query(
+    "SELECT * FROM users WHERE email=? OR username=?",
+    [email, username]
+);
 
-        if(existsuser.length>0){
-            return res.json({success:false, message:"user already exists"});
-        }
+if (existingUser.length > 0) {
+    if (existingUser[0].email === email) {
+        return res.json({ success: false, message: "Email already exists" });
+    }
+    if (existingUser[0].username === username) {
+        return res.json({ success: false, message: "Username already taken" });
+    }
+}
 
         const hashpassword=await bcrypt.hash(password,10);
 
@@ -37,11 +42,11 @@ export const register=async(req,res)=>{
        
        res.cookie("token",token,{
         httpOnly:true,secure:process.env.NODE_ENV==="production",
-        sameSite:process.env.NODE_ENV==="production"?"none":"strict",
+        sameSite:process.env.NODE_ENV==="production"?"none":"lax",
         maxAge:2*24*60*60*1000,
        })
 
-       return res.json({success:true,message:"user registered successfully",token:token,userId:userId})
+       return res.json({success:true,message:"user registered successfully",token:token,user:{user_id:userId,username,email}})
 
     }catch(error){
         return res.json({success:false,message:"server error",error:error.message});
@@ -80,11 +85,11 @@ export const login=async(req,res)=>{
 
          res.cookie("token",token,{
             httpOnly:true,secure:process.env.NODE_ENV==="production",
-            sameSite:process.env.NODE_ENV==="production"?"none":"strict",
+            sameSite:process.env.NODE_ENV==="production"?"none":"lax",
             maxAge:2*24*60*60*1000,
          })
 
-            return res.json({success:true,message:"login successfully",token:token,userId:user[0].user_id})
+            return res.json({success:true,message:"login successfully",token:token,user:user[0]})
 
       }catch(error){
         return res.json({success:false,message:"server error",error:error.message});
@@ -99,3 +104,22 @@ export const logout=async(req,res)=>{
 
     return res.json({success:true,message:"logout successfully"});
 }
+
+export const getUser = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const [user] = await pool.query(
+            "SELECT user_id, username, email FROM users WHERE user_id = ?",
+            [userId]
+        );
+
+        if (user.length === 0) {
+            return res.json({ success: false, message: "User not found" });
+        }
+
+        return res.json({ success: true, user: user[0] });
+    } catch (err) {
+        console.error("GET USER ERROR:", err);
+        return res.json({ success: false, message: "Server error" });
+    }
+};

@@ -5,6 +5,8 @@ import analyzeRouter from "./routes/analysisRoutes.js";
 import cookieParser from "cookie-parser";
 import postRouter from "./routes/postRoutes.js";
 import voteRouter from "./routes/voteRoutes.js";
+import guidanceRouter from "./routes/guidanceRoutes.js";
+import discussionRouter from "./routes/discussionRoutes.js";
 
 import dotenv from "dotenv";
 
@@ -29,6 +31,8 @@ app.use('/api/auth',authrouter);
 app.use('/api',analyzeRouter);
 app.use('/api/posts',postRouter);
 app.use('/api/votes',voteRouter);
+app.use('/api/guidance', guidanceRouter);
+app.use('/api/discussions', discussionRouter);
 
 
 

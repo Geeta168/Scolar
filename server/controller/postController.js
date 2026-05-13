@@ -100,6 +100,7 @@ export const getAllPosts = async (req, res) => {
         posts.ai_score,
         posts.ai_label,
         posts.created_at,
+        posts.is_flagged,
         users.username,
         COUNT(votes.id) AS votes
       FROM posts
