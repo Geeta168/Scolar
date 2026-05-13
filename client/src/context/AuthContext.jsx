@@ -1,9 +1,11 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {  logoutUser as apiLogout, getUserData } from '../api';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
+    const navigate = useNavigate();
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
@@ -34,11 +36,15 @@ export const AuthProvider = ({ children }) => {
 
     const logoutUser = async () => {
         try {
-            await apiLogout();
+            const res = await apiLogout();
+            if (!res || !res.success) {
+                console.warn("Logout failed:", res?.message);
+            }
         } catch (err) {
             console.log(err);
         } finally {
             setUser(null);
+            navigate('/login');
         }
     };
 

@@ -87,6 +87,62 @@ export const upvotePost = async (postId) => {
   return res.json();
 };
 
+// 👎 DOWNVOTE POST
+export const downvotePost = async (postId) => {
+  const res = await fetch(`${URL}/votes/downvote`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ postId }),
+  });
+
+  return res.json();
+};
+
+// 💬 COMMENTS API
+export const getPostComments = async (postId) => {
+  const res = await fetch(`${URL}/comments/${postId}`, {
+    credentials: "include",
+  });
+  return res.json();
+};
+
+export const createComment = async (postId, content) => {
+  const res = await fetch(`${URL}/comments/${postId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ content }),
+  });
+  return res.json();
+};
+
+export const deleteComment = async (commentId) => {
+  const res = await fetch(`${URL}/comments/${commentId}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  return res.json();
+};
+
+export const createCommentReply = async (commentId, content) => {
+  const res = await fetch(`${URL}/comments/${commentId}/reply`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ content }),
+  });
+  return res.json();
+};
+
+// 🤖 ANALYZE POST SCAM BASED ON ENGAGEMENT
+export const analyzePostScam = async (postId) => {
+  const res = await fetch(`${URL}/posts/analyze/${postId}`, {
+    credentials: "include",
+  });
+  return res.json();
+};
+
 /*
 Optional: AI analyze (only if backend supports it)
 */

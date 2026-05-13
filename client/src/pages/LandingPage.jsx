@@ -4,7 +4,7 @@ import { GraduationCap, Sparkles, BookOpen, Search, ArrowRight, ShieldCheck } fr
 import { useAuth } from '../context/AuthContext';
 
 const LandingPage = () => {
-  const { user } = useAuth();
+  const { user, logoutUser } = useAuth();
   
   // Generate random stars for the background
   const stars = useMemo(() => {
@@ -56,9 +56,17 @@ const LandingPage = () => {
                 Community
               </Link>
               {user ? (
-                <Link to="/scolarlist" className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2.5 rounded-full font-semibold transition-all shadow-lg shadow-indigo-600/20 hover:shadow-indigo-600/40 hover:-translate-y-0.5 active:scale-95">
-                  Scholar Feed
-                </Link>
+                <>
+                  <Link to="/scolarlist" className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2.5 rounded-full font-semibold transition-all shadow-lg shadow-indigo-600/20 hover:shadow-indigo-600/40 hover:-translate-y-0.5 active:scale-95">
+                    Scholar Feed
+                  </Link>
+                  <button
+                    onClick={logoutUser}
+                    className="text-slate-200 bg-slate-800/80 hover:bg-slate-700 px-4 py-2 rounded-full font-semibold transition-all border border-white/10"
+                  >
+                    Log out
+                  </button>
+                </>
               ) : (
                 <>
                   <Link to="/login" className="text-slate-400 hover:text-white font-medium transition-colors px-3 py-2">
@@ -130,16 +138,16 @@ const LandingPage = () => {
             <h2 className="text-4xl md:text-5xl font-black text-white mb-4 tracking-tight">Why choose Scolar?</h2>
             <p className="text-lg text-slate-400 max-w-2xl mx-auto font-medium">We streamline the entire scholarship process so you can focus on what matters most: your education.</p>
           </div>
-
+          
           <div className="grid md:grid-cols-3 gap-8">
             {/* Feature 1 */}
             <div className="group bg-slate-900/50 p-10 rounded-[2.5rem] border border-white/5 hover:border-indigo-500/30 hover:shadow-2xl hover:shadow-indigo-500/5 transition-all duration-500 hover:-translate-y-2">
               <div className="group-hover:bg-indigo-600 bg-indigo-500/10 w-16 h-16 rounded-2xl flex items-center justify-center mb-8 group-hover:rotate-6 transition-all duration-500">
                 <Search className="h-8 w-8 text-indigo-400 group-hover:text-white transition-colors" />
               </div>
-              <h3 className="text-2xl font-bold text-white mb-4">Smart Matching</h3>
+              <h3 className="text-2xl font-bold text-white mb-4">community discussion</h3>
               <p className="text-slate-400 leading-relaxed font-medium">
-                Our intelligent algorithm matches you with scholarships that fit your specific background, minimizing wasted time.
+                share tips, and get advice on applications in our vibrant community forum.
               </p>
             </div>
 

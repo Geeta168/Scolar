@@ -6,7 +6,7 @@ const Authrouter=express.Router();
 
 Authrouter.post("/register",register);
 Authrouter.post("/login",login);
-Authrouter.post("/logout",userAuth,logout);
+Authrouter.post("/logout",logout);
 Authrouter.get("/user", userAuth, getUser);
 
 export default Authrouter;

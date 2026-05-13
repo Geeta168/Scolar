@@ -1,22 +1,19 @@
 import React, { useEffect, useState } from "react";
-import { getPosts, createPost, upvotePost, analyzeText } from "../api";
+import { useNavigate } from "react-router-dom";
+import { getPosts, createPost, upvotePost, downvotePost } from "../api";
+import { useAuth } from "../context/AuthContext";
 import PostAiGuidance from "../components/PostAiGuidance";
 
 const ScolarList = () => {
+  const navigate = useNavigate();
+  const { logoutUser, user, loading: authLoading } = useAuth();
   const [posts, setPosts] = useState([]);
   const [selectedPost, setSelectedPost] = useState(null);
-  const [votedPosts, setVotedPosts] = useState([]);
 
   // MODAL STATES
   const [showModal, setShowModal] = useState(false);
   const [text, setText] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [aiResult, setAiResult] = useState(null);
-
-  // PROOF STATES
-  const [proofRequired, setProofRequired] = useState(false);
-  const [proofAttempts, setProofAttempts] = useState(0);
-  const [proofText, setProofText] = useState("");
+  const [postLoading, setPostLoading] = useState(false);
 
   // FETCH POSTS
   const fetchPosts = async () => {
@@ -25,109 +22,51 @@ const ScolarList = () => {
   };
 
   useEffect(() => {
-    fetchPosts();
-  }, []);
-
-  // SORT POSTS (SAFE > SUSPICIOUS > SCAM)
-  const sortedPosts = [...posts].sort((a, b) => {
-    const priority = {
-      SAFE: 3,
-      SUSPICIOUS: 2,
-      SCAM: 1,
-    };
-
-    if (priority[a.ai_label] !== priority[b.ai_label]) {
-      return priority[b.ai_label] - priority[a.ai_label];
+    if (!authLoading && !user) {
+      navigate('/login');
+      return;
     }
 
-    return b.ai_score - a.ai_score;
+    if (user) {
+      fetchPosts();
+    }
+  }, [authLoading, user]);
+
+  // SORT POSTS BY ENGAGEMENT
+  const sortedPosts = [...posts].sort((a, b) => {
+    const aScore = (a.upvotes || 0) - (a.downvotes || 0);
+    const bScore = (b.upvotes || 0) - (b.downvotes || 0);
+    return bScore - aScore;
   });
 
   // OPEN MODAL
   const openModal = () => {
     setShowModal(true);
     setText("");
-    setAiResult(null);
-    setProofRequired(false);
-    setProofAttempts(0);
-    setProofText("");
   };
 
   // CLOSE MODAL
   const closeModal = () => {
     setShowModal(false);
     setText("");
-    setAiResult(null);
-    setProofRequired(false);
-    setProofAttempts(0);
-    setProofText("");
   };
 
-  // AI ANALYSIS (OPTIONAL PREVIEW)
-  const handleAnalyze = async () => {
-    if (!text) return alert("Write something first");
-
-    const res = await analyzeText(text);
-
-    console.log("AI RESPONSE 👉", res);
-
-    if (res.success) {
-      setAiResult(res.data);
-    } else {
-      alert("AI analysis failed");
-    }
-  };
-
-  // CREATE POST
+  // CREATE POST - SIMPLIFIED
   const handlePost = async () => {
     if (!text) return alert("Write something first");
 
-    if (!aiResult) {
-      alert("Please run AI analysis first");
-      return;
-    }
+    setPostLoading(true);
 
-    const isRisky = aiResult.label === "SCAM" || aiResult.label === "SUSPICIOUS" || aiResult.score < 30;
-
-    if (isRisky && !proofRequired) {
-      setProofRequired(true);
-      return;
-    }
-
-    let finalContent = text;
-
-    if (proofRequired) {
-      if (!proofText) return alert("Please provide proof of authenticity.");
-      
-      setLoading(true);
-      // Run AI again with the proof appended
-      const proofRes = await analyzeText(text + "\\n\\nProof Provided: " + proofText);
-      
-      if (proofRes.success && proofRes.data.label === "SAFE") {
-        finalContent = text + "\\n\\n[Verified Proof: " + proofText + "]";
-      } else {
-        setProofAttempts((prev) => prev + 1);
-        if (proofAttempts < 2) {
-          setLoading(false);
-          alert(`Proof rejected. Attempts left: \${2 - proofAttempts}`);
-          return;
-        } else {
-          alert("Proof verification failed 3 times. Your post will be flagged and submitted.");
-          finalContent = text + "\\n\\n[Unverified/Flagged Proof: " + proofText + "]";
-        }
-      }
-    }
-
-    setLoading(true);
-
-    const res = await createPost(finalContent);
+    const res = await createPost(text);
 
     if (res.success) {
       closeModal();
       fetchPosts();
+    } else {
+      alert(res.message || "Failed to create post");
     }
 
-    setLoading(false);
+    setPostLoading(false);
   };
 
   return (
@@ -137,7 +76,7 @@ const ScolarList = () => {
         {/* HEADER */}
         <div className="flex justify-between items-center bg-white/5 backdrop-blur-xl p-6 rounded-3xl shadow-2xl mb-10 border border-white/10">
           <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 tracking-tight">
-            ✨ Scholar Feed
+            ✨ ScholarHub
           </h1>
 
           <div className="flex items-center gap-4">
@@ -152,6 +91,12 @@ const ScolarList = () => {
               className="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold px-8 py-3 rounded-xl shadow-lg hover:shadow-blue-500/30 hover:scale-105 transition-all duration-300"
             >
               ➕ Create Post
+            </button>
+            <button
+              onClick={logoutUser}
+              className="bg-slate-700 text-white font-bold px-6 py-3 rounded-xl border border-slate-600/50 hover:bg-slate-600 transition-all duration-300"
+            >
+              Log out
             </button>
           </div>
         </div>
@@ -179,21 +124,11 @@ const ScolarList = () => {
             </div>
 
             <div className="mt-6 pt-4 border-t border-slate-700/50">
-              {/* AI TAG & FLAG */}
+              {/* ENGAGEMENT METRICS */}
               <div className="flex justify-between tracking-wide text-sm items-center mb-4">
-                <div className="flex gap-3 items-center">
-                  <span
-                    className={`px-4 py-1.5 text-white rounded-full text-xs font-black shadow-md uppercase tracking-wider
-                      \${
-                        post.ai_label === "SAFE"
-                          ? "bg-gradient-to-r from-emerald-500 to-green-600"
-                          : post.ai_label === "SUSPICIOUS"
-                          ? "bg-gradient-to-r from-yellow-500 to-orange-500"
-                          : "bg-gradient-to-r from-red-600 to-rose-700"
-                      }
-                    `}
-                  >
-                    {post.ai_label}
+                <div className="flex gap-2 items-center">
+                  <span className="text-xs font-bold text-slate-300 bg-slate-800/50 px-3 py-1 rounded-full border border-slate-700">
+                    💬 {post.commentCount || 0} Comments
                   </span>
 
                   {/* SHOW FLAG VISIBLY */}
@@ -204,28 +139,43 @@ const ScolarList = () => {
                   )}
                 </div>
 
-                <span className="font-bold text-blue-300 bg-blue-950/50 px-3 py-1.5 rounded-lg border border-blue-900/50">
-                  ⭐ Score: {post.ai_score}
+                <span className="text-xs font-bold text-slate-300 bg-slate-800/50 px-3 py-1 rounded-full border border-slate-700">
+                  🔥 Engagement: {((post.upvotes || 0) - (post.downvotes || 0))}
                 </span>
               </div>
 
-              {/* UPVOTE */}
-              <button
-                onClick={async (e) => {
-                  e.stopPropagation();
-                  const res = await upvotePost(post.id);
-                  if (!res.success) {
-                    alert("Already voted");
-                    return;
-                  }
-                  setVotedPosts((prev) => [...prev, post.id]);
-                  fetchPosts();
-                }}
-                disabled={votedPosts.includes(post.id)}
-                className="w-full flex items-center justify-center gap-2 py-3 bg-slate-700/50 hover:bg-slate-600/80 border border-slate-600/50 text-md font-bold text-gray-200 rounded-xl transition duration-200 shadow-sm"
-              >
-                👍 Upvotes: {post.votes || 0}
-              </button>
+              {/* UPVOTE & DOWNVOTE */}
+              <div className="flex gap-2">
+                <button
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    const res = await upvotePost(post.id);
+                    if (!res.success) {
+                      alert(res.message || "Unable to update vote");
+                      return;
+                    }
+                    fetchPosts();
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 bg-slate-700/50 hover:bg-green-600/50 border border-slate-600/50 text-md font-bold text-gray-200 rounded-xl transition duration-200 shadow-sm"
+                >
+                  👍 {post.upvotes || 0}
+                </button>
+                
+                <button
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    const res = await downvotePost(post.id);
+                    if (!res.success) {
+                      alert(res.message || "Unable to update vote");
+                      return;
+                    }
+                    fetchPosts();
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 bg-slate-700/50 hover:bg-red-600/50 border border-slate-600/50 text-md font-bold text-gray-200 rounded-xl transition duration-200 shadow-sm"
+                >
+                  👎 {post.downvotes || 0}
+                </button>
+              </div>
             </div>
           </div>
         ))}
@@ -246,49 +196,8 @@ const ScolarList = () => {
               rows={5}
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder="What unique opportunity are you sharing today?"
+              placeholder="Share your scholarship opportunity or experience..."
             />
-
-            {/* ANALYZE BUTTON */}
-            <button
-              onClick={handleAnalyze}
-              className="mt-4 w-full bg-slate-700 hover:bg-slate-600 text-blue-300 font-bold px-4 py-2 rounded-xl transition-colors border border-slate-600"
-            >
-              Analyze with AI ✨
-            </button>
-
-            {/* AI RESULT */}
-            {aiResult && (
-              <div className="mt-4 p-4 bg-slate-800 border border-slate-600 rounded-xl text-sm text-gray-300 shadow-inner">
-                <p className="mb-1"><b className="text-white">Label:</b> {aiResult.label}</p>
-                <p className="mb-3"><b className="text-white">Trust Score:</b> {aiResult.score}</p>
-
-                {aiResult.reasons?.map((r, i) => (
-                  <p key={i} className="text-gray-400">• {r}</p>
-                ))}
-              </div>
-            )}
-
-            {/* WARNING */}
-            {(aiResult?.label === "SCAM" || aiResult?.label === "SUSPICIOUS") && (
-              <div className="mt-4 p-4 bg-red-950/30 border border-red-800 rounded-xl">
-                <p className="text-red-400 text-sm font-bold flex items-center gap-2">
-                  🚨 This post seems risky. Proof is required.
-                </p>
-                {proofRequired && (
-                  <div className="mt-3">
-                    <textarea
-                      className="w-full bg-slate-900 border-2 border-red-800 p-3 rounded-xl focus:ring-red-500 text-sm text-gray-200 outline-none"
-                      rows={2}
-                      value={proofText}
-                      onChange={(e) => setProofText(e.target.value)}
-                      placeholder="Paste official URL links or verification evidence..."
-                    />
-                    <p className="text-xs text-red-500 mt-2 font-bold tracking-widest uppercase">Attempts left: {2 - proofAttempts}</p>
-                  </div>
-                )}
-              </div>
-            )}
 
             {/* BUTTONS */}
             <div className="flex justify-end gap-3 mt-6">
@@ -302,10 +211,10 @@ const ScolarList = () => {
 
               <button
                 onClick={handlePost}
-                disabled={loading}
+                disabled={postLoading}
                 className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg transition"
               >
-                {loading ? "Posting..." : "Post Now"}
+                {postLoading ? "Posting..." : "Post Now"}
               </button>
 
             </div>
@@ -340,33 +249,29 @@ const ScolarList = () => {
 
             <p className="mt-4 text-gray-200 text-lg leading-relaxed whitespace-pre-wrap">{selectedPost.content}</p>
 
-            <div className="mt-8 flex gap-4 items-center">
+            <div className="mt-8 flex gap-4 items-center flex-wrap">
               <span className="font-bold text-blue-300 bg-blue-950/50 px-4 py-2 rounded-xl border border-blue-900/50">
-                ⭐ AI Trust Score: {selectedPost.ai_score}
+                👍 Upvotes: {selectedPost.upvotes || 0}
               </span>
 
-              <span className={`px-4 py-2 text-white rounded-xl font-bold shadow-md uppercase tracking-wider
-                      \${
-                        selectedPost.ai_label === "SAFE"
-                          ? "bg-gradient-to-r from-emerald-500 to-green-600"
-                          : selectedPost.ai_label === "SUSPICIOUS"
-                          ? "bg-gradient-to-r from-yellow-500 to-orange-500"
-                          : "bg-gradient-to-r from-red-600 to-rose-700"
-                      }
-                    `}>
-                Shield Status: {selectedPost.ai_label}
+              <span className="font-bold text-red-300 bg-red-950/50 px-4 py-2 rounded-xl border border-red-900/50">
+                👎 Downvotes: {selectedPost.downvotes || 0}
+              </span>
+
+              <span className="font-bold text-slate-300 bg-slate-800/50 px-4 py-2 rounded-xl border border-slate-700/50">
+                💬 Comments: {selectedPost.commentCount || 0}
               </span>
             </div>
 
             {selectedPost.is_flagged === 1 && (
               <div className="mt-6 text-red-300 font-bold bg-red-950/50 p-4 border border-red-800/50 rounded-xl flex items-center gap-3">
                 <span className="text-2xl">🚩</span>
-                <p>This post has been flagged by the system due to failed proof or suspicious content.</p>
+                <p>This post has been flagged by the system.</p>
               </div>
             )}
 
             {/* AI GUIDANCE PER POST */}
-            <PostAiGuidance postId={selectedPost.post_id || selectedPost.id} />
+            <PostAiGuidance postId={selectedPost.id} />
 
           </div>
         </div>
