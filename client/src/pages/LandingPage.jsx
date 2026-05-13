@@ -49,7 +49,7 @@ const LandingPage = () => {
               <div className="bg-indigo-600 p-2 rounded-xl shadow-lg shadow-indigo-600/20">
                 <GraduationCap className="h-6 w-6 text-white" />
               </div>
-              <span className="font-bold text-2xl tracking-tight text-white">Scolar</span>
+              <span className="font-bold text-2xl tracking-tight text-white">Scholar</span>
             </div>
             <div className="flex items-center space-x-4">
               <Link to="/forum" className="text-slate-400 hover:text-white font-medium transition-colors">

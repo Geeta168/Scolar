@@ -87,7 +87,7 @@ const PublicForum = () => {
                         <div className="bg-indigo-600 p-2.5 rounded-xl shadow-lg shadow-indigo-600/20 group-hover:bg-indigo-700 transition-colors">
                             <GraduationCap className="h-7 w-7 text-white" />
                         </div>
-                        <span className="font-black text-3xl tracking-tight text-white uppercase italic">Scolar Forum</span>
+                        <span className="font-black text-3xl tracking-tight text-white uppercase italic">Scholar Forum</span>
                     </Link>
                     <nav className="flex space-x-4">
                         <Link to="/scolarlist" className="text-slate-400 hover:text-white transition-colors font-black text-sm uppercase tracking-widest border-b-2 border-transparent hover:border-indigo-500 pb-1">Scholarships</Link>
