@@ -46,6 +46,13 @@ ${text}
 
     let aiText = completion.choices[0].message.content;
 
+    // Clean JSON response
+    if (aiText.includes("```json")) {
+      aiText = aiText.split("```json")[1].split("```")[0].trim();
+    } else if (aiText.includes("```")) {
+      aiText = aiText.split("```")[1].split("```")[0].trim();
+    }
+
     const parsed = JSON.parse(aiText);
 
     return res.json({
@@ -92,6 +99,14 @@ Return ONLY valid JSON (no markdown, no backticks):
     });
 
     let aiText = completion.choices[0].message.content;
+    
+    // Clean JSON response
+    if (aiText.includes("```json")) {
+      aiText = aiText.split("```json")[1].split("```")[0].trim();
+    } else if (aiText.includes("```")) {
+      aiText = aiText.split("```")[1].split("```")[0].trim();
+    }
+
     const parsed = JSON.parse(aiText);
 
     return res.json({

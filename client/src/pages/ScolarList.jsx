@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getPosts, createPost, upvotePost, downvotePost } from "../api";
+import { getPosts, createPost, upvotePost, downvotePost, getPostComments, createComment, createCommentReply, analyzePostScam } from "../api";
 import { useAuth } from "../context/AuthContext";
 import PostAiGuidance from "../components/PostAiGuidance";
 
@@ -15,10 +15,27 @@ const ScolarList = () => {
   const [text, setText] = useState("");
   const [postLoading, setPostLoading] = useState(false);
 
+  // COMMENTS STATES
+  const [comments, setComments] = useState([]);
+  const [newComment, setNewComment] = useState("");
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [replyContent, setReplyContent] = useState("");
+  const [commentLoading, setCommentLoading] = useState(false);
+
+  // SCAM ANALYSIS STATE
+  const [scamAnalysis, setScamAnalysis] = useState(null);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+
   // FETCH POSTS
   const fetchPosts = async () => {
     const res = await getPosts();
     if (res.success) setPosts(res.posts);
+  };
+
+  // FETCH COMMENTS FOR SELECTED POST
+  const fetchComments = async (postId) => {
+    const res = await getPostComments(postId);
+    if (res.success) setComments(res.comments);
   };
 
   useEffect(() => {
@@ -31,6 +48,18 @@ const ScolarList = () => {
       fetchPosts();
     }
   }, [authLoading, user]);
+
+  useEffect(() => {
+    if (selectedPost) {
+      fetchComments(selectedPost.id);
+      setScamAnalysis(null); // Reset analysis when switching posts
+    } else {
+      setComments([]);
+      setReplyingTo(null);
+      setReplyContent("");
+      setScamAnalysis(null);
+    }
+  }, [selectedPost]);
 
   // SORT POSTS BY ENGAGEMENT
   const sortedPosts = [...posts].sort((a, b) => {
@@ -67,6 +96,56 @@ const ScolarList = () => {
     }
 
     setPostLoading(false);
+  };
+
+  // CREATE COMMENT
+  const handleCreateComment = async () => {
+    if (!newComment.trim()) return;
+    setCommentLoading(true);
+
+    const res = await createComment(selectedPost.id, newComment);
+    if (res.success) {
+      setNewComment("");
+      fetchComments(selectedPost.id);
+    } else {
+      alert("Failed to post comment");
+    }
+
+    setCommentLoading(false);
+  };
+
+  // CREATE REPLY
+  const handleCreateReply = async () => {
+    if (!replyContent.trim()) return;
+    setCommentLoading(true);
+
+    const res = await createCommentReply(replyingTo, replyContent);
+    if (res.success) {
+      setReplyContent("");
+      setReplyingTo(null);
+      fetchComments(selectedPost.id);
+    } else {
+      alert("Failed to post reply");
+    }
+    setCommentLoading(false);
+  };
+
+  // AI SCAM ANALYSIS
+  const handleAnalyzeScam = async () => {
+    if (!selectedPost) return;
+    setAnalysisLoading(true);
+    const res = await analyzePostScam(selectedPost.id);
+    if (res.success) {
+      setScamAnalysis(res);
+      // Update the selected post locally to show new label/score if needed
+      setSelectedPost(prev => ({ ...prev, ai_label: res.label, ai_score: res.score }));
+      fetchPosts(); // Refresh list to update labels there too
+    } else {
+      const errorMsg = res.message || res.error || "Unknown error";
+      const details = res.details ? ` (${res.details})` : "";
+      alert("AI analysis failed: " + errorMsg + details);
+    }
+    setAnalysisLoading(false);
   };
 
   return (
@@ -270,8 +349,171 @@ const ScolarList = () => {
               </div>
             )}
 
+            {/* AI SCAM ANALYSIS BUTTON & DISPLAY */}
+            <div className="mt-8 p-6 bg-slate-800/40 border border-slate-700/50 rounded-3xl backdrop-blur-md shadow-inner">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h3 className="text-xl font-black text-white flex items-center gap-2">
+                    <span className="p-2 bg-indigo-500/20 rounded-lg">🛡️</span>
+                    AI Integrity Guard
+                  </h3>
+                  <p className="text-slate-400 text-sm mt-1">Deep analysis of content, engagement and community sentiment</p>
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleAnalyzeScam();
+                  }}
+                  disabled={analysisLoading}
+                  className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-black px-6 py-3 rounded-2xl shadow-xl shadow-indigo-600/20 transition-all hover:-translate-y-1 active:scale-95 disabled:opacity-50 disabled:hover:translate-y-0 text-sm"
+                >
+                  {analysisLoading ? (
+                    <span className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      Processing...
+                    </span>
+                  ) : "Verify with AI"}
+                </button>
+              </div>
+
+              {(scamAnalysis || (selectedPost.ai_label && selectedPost.ai_label !== "PENDING")) && (
+                <div className="space-y-6 animate-fade-in-up">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* LABEL CARD */}
+                    <div className={`p-4 rounded-2xl border ${
+                      (scamAnalysis?.label || selectedPost.ai_label) === 'SCAM' ? 'bg-red-500/10 border-red-500/30 text-red-400' :
+                      (scamAnalysis?.label || selectedPost.ai_label) === 'SUSPICIOUS' ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' :
+                      'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                    }`}>
+                      <p className="text-[10px] uppercase font-black tracking-widest opacity-60 mb-1">Safety Rating</p>
+                      <p className="text-2xl font-black tracking-tighter">
+                        {scamAnalysis?.label || selectedPost.ai_label}
+                      </p>
+                    </div>
+
+                    {/* SCORE CARD */}
+                    <div className="bg-slate-950/40 p-4 rounded-2xl border border-slate-700/50">
+                      <div className="flex justify-between items-end mb-2">
+                        <p className="text-[10px] uppercase font-black tracking-widest text-slate-500">Risk Factor</p>
+                        <p className="text-xl font-black text-white">{scamAnalysis?.score || selectedPost.ai_score}%</p>
+                      </div>
+                      <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full transition-all duration-1000 ${
+                            (scamAnalysis?.score || selectedPost.ai_score) > 70 ? 'bg-red-500' :
+                            (scamAnalysis?.score || selectedPost.ai_score) > 40 ? 'bg-amber-500' :
+                            'bg-emerald-500'
+                          }`}
+                          style={{ width: `${scamAnalysis?.score || selectedPost.ai_score}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* REASONING SECTION */}
+                  <div className="bg-slate-950/40 p-5 rounded-2xl border border-slate-700/50 relative overflow-hidden group">
+                    <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500/30" />
+                    <p className="text-[10px] uppercase font-black tracking-widest text-slate-500 mb-3 flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
+                      Analysis Reasoning
+                    </p>
+                    <p className="text-slate-300 leading-relaxed text-sm font-medium">
+                      {scamAnalysis?.reasoning || "Historical data confirms this post's current rating based on content patterns and community flags."}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* AI GUIDANCE PER POST */}
             <PostAiGuidance postId={selectedPost.id} />
+
+            {/* COMMENTS SECTION */}
+            <div className="mt-8 border-t border-slate-700 pt-6">
+              <h3 className="text-xl font-bold text-white mb-4">Comments</h3>
+
+              {/* ADD COMMENT FORM */}
+              <div className="mb-6">
+                <textarea
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  placeholder="Add a comment..."
+                  className="w-full bg-slate-800 border border-slate-600 p-4 rounded-xl text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none transition resize-none"
+                  rows={3}
+                />
+                <button
+                  onClick={handleCreateComment}
+                  disabled={commentLoading || !newComment.trim()}
+                  className="mt-2 px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition disabled:bg-slate-600"
+                >
+                  {commentLoading ? "Posting..." : "Post Comment"}
+                </button>
+              </div>
+
+              {/* COMMENTS LIST */}
+              <div className="space-y-4">
+                {comments.map((comment) => (
+                  <div key={comment.id} className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="font-bold text-blue-300">{comment.username}</span>
+                      <span className="text-sm text-slate-400">{new Date(comment.created_at).toLocaleString()}</span>
+                    </div>
+                    <p className="text-gray-200 mb-3">{comment.content}</p>
+
+                    {/* REPLY BUTTON */}
+                    <button
+                      onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
+                      className="text-sm text-blue-400 hover:text-blue-300 font-medium"
+                    >
+                      Reply
+                    </button>
+
+                    {/* REPLY FORM */}
+                    {replyingTo === comment.id && (
+                      <div className="mt-3 pl-4 border-l-2 border-slate-600">
+                        <textarea
+                          value={replyContent}
+                          onChange={(e) => setReplyContent(e.target.value)}
+                          placeholder="Write a reply..."
+                          className="w-full bg-slate-700 border border-slate-600 p-3 rounded-lg text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none transition resize-none"
+                          rows={2}
+                        />
+                        <div className="flex gap-2 mt-2">
+                          <button
+                            onClick={handleCreateReply}
+                            disabled={commentLoading || !replyContent.trim()}
+                            className="px-4 py-1 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg transition disabled:bg-slate-600"
+                          >
+                            {commentLoading ? "Posting..." : "Reply"}
+                          </button>
+                          <button
+                            onClick={() => { setReplyingTo(null); setReplyContent(""); }}
+                            className="px-4 py-1 bg-slate-600 hover:bg-slate-500 text-white font-medium rounded-lg transition"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* REPLIES */}
+                    {comment.replies && comment.replies.length > 0 && (
+                      <div className="mt-4 pl-4 border-l-2 border-slate-600 space-y-2">
+                        {comment.replies.map((reply) => (
+                          <div key={reply.id} className="bg-slate-700/50 p-3 rounded-lg">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-bold text-green-300 text-sm">{reply.username}</span>
+                              <span className="text-xs text-slate-500">{new Date(reply.created_at).toLocaleString()}</span>
+                            </div>
+                            <p className="text-gray-300 text-sm">{reply.content}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
 
           </div>
         </div>
@@ -282,4 +524,4 @@ const ScolarList = () => {
   );
 };
 
-export default ScolarList;
+export default ScolarList;

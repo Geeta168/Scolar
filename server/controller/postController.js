@@ -70,19 +70,19 @@ export const getAllPosts = async (req, res) => {
   }
 };
 
-// Analyze post scam risk based on engagement metrics
+// Analyze post scam risk based on engagement metrics and AI content analysis
 export const analyzePostScam = async (req, res) => {
   try {
     const { postId } = req.params;
 
+    // Get post content, votes and comments
     const [postData] = await pool.query(`
       SELECT 
         posts.content,
         posts.post_id AS id,
-        SUM(CASE WHEN votes.vote_type = 'upvote' OR votes.vote_type IS NULL THEN 1 ELSE 0 END) AS upvotes,
-        SUM(CASE WHEN votes.vote_type = 'downvote' THEN 1 ELSE 0 END) AS downvotes,
-        COUNT(DISTINCT comments.id) AS commentCount,
-        GROUP_CONCAT(comments.content) AS commentTexts
+        COALESCE(SUM(CASE WHEN votes.vote_type = 'upvote' THEN 1 ELSE 0 END), 0) AS upvotes,
+        COALESCE(SUM(CASE WHEN votes.vote_type = 'downvote' THEN 1 ELSE 0 END), 0) AS downvotes,
+        COUNT(DISTINCT comments.id) AS commentCount
       FROM posts
       LEFT JOIN votes ON posts.post_id = votes.post_id
       LEFT JOIN comments ON posts.post_id = comments.post_id
@@ -94,82 +94,80 @@ export const analyzePostScam = async (req, res) => {
       return res.status(404).json({ success: false, message: "Post not found" });
     }
 
+    // Get comment texts separately to avoid GROUP_CONCAT limits
+    const [commentData] = await pool.query(`
+      SELECT content FROM comments WHERE post_id = ? LIMIT 10
+    `, [postId]);
+
     const post = postData[0];
+    const commentTexts = commentData.map(c => c.content).join("\n- ");
     const upvotes = post.upvotes || 0;
     const downvotes = post.downvotes || 0;
-    const commentCount = post.commentCount || 0;
-    const totalVotes = upvotes + downvotes;
-    
-    // Calculate engagement-based scam metrics
-    let scamScore = 50; // baseline
-    let reasons = [];
 
-    // Downvote ratio analysis
-    if (totalVotes > 0) {
-      const downvoteRatio = downvotes / totalVotes;
-      if (downvoteRatio > 0.5) {
-        scamScore += 25;
-        reasons.push(`High downvote ratio (${(downvoteRatio * 100).toFixed(1)}%)`);
-      } else if (downvoteRatio > 0.3) {
-        scamScore += 10;
-        reasons.push(`Moderate downvote ratio (${(downvoteRatio * 100).toFixed(1)}%)`);
-      }
-    }
-
-    // Low engagement analysis
-    if (totalVotes < 3 && commentCount < 2) {
-      scamScore += 15;
-      reasons.push("Low engagement (few votes and comments)");
-    }
-
-    // High engagement = trustworthy
-    if (upvotes > 5 && downvotes < 2) {
-      scamScore -= 15;
-      reasons.push("Strong positive engagement");
-    }
-
-    // AI analysis of comments for red flags
-    if (post.commentTexts) {
-      const commentArray = post.commentTexts.split(",");
-      const negativeKeywords = ["scam", "fake", "fraud", "suspicious", "warning", "beware"];
-      let negativeCount = 0;
+    const prompt = `
+      Analyze the following scholarship post and community engagement to determine if it is a SCAM or REAL.
       
-      commentArray.forEach(comment => {
-        const lower = comment.toLowerCase();
-        negativeKeywords.forEach(kw => {
-          if (lower.includes(kw)) negativeCount++;
-        });
-      });
-
-      if (negativeCount > 2) {
-        scamScore += 20;
-        reasons.push(`Multiple negative mentions in comments (${negativeCount})`);
+      POST CONTENT:
+      "${post.content}"
+      
+      COMMUNITY ENGAGEMENT:
+      - Upvotes: ${upvotes}
+      - Downvotes: ${downvotes}
+      - Recent Comments: 
+      ${commentTexts || "No community comments yet."}
+      
+      INSTRUCTIONS:
+      1. Evaluate the content for common scam red flags (vague details, suspicious links, requests for money, too-good-to-be-true promises).
+      2. Factor in the community votes. High downvotes compared to upvotes often signal a scam.
+      3. Analyze the sentiment of comments. Look for warnings like "scam", "fake", or "worked for me".
+      
+      Return ONLY a JSON object in this format:
+      {
+        "label": "SCAM" | "SUSPICIOUS" | "REAL",
+        "score": number (0-100, where 100 is definitely a scam),
+        "reasoning": "A brief explanation of why this was flagged"
       }
+    `;
+
+    const chatCompletion = await groq.chat.completions.create({
+      messages: [{ role: "user", content: prompt }],
+      model: "llama-3.3-70b-versatile",
+      response_format: { type: "json_object" },
+    });
+
+    let aiResponse = chatCompletion.choices[0].message.content;
+    
+    // Clean JSON response in case model returns markdown backticks despite instructions
+    if (aiResponse.includes("```json")) {
+      aiResponse = aiResponse.split("```json")[1].split("```")[0].trim();
+    } else if (aiResponse.includes("```")) {
+      aiResponse = aiResponse.split("```")[1].split("```")[0].trim();
     }
 
-    // Determine label based on final score
-    let label = "SAFE";
-    if (scamScore > 70) {
-      label = "SCAM";
-    } else if (scamScore > 50) {
-      label = "SUSPICIOUS";
-    }
+    const aiResult = JSON.parse(aiResponse);
+
+    // Update the post with the latest AI results
+    await pool.query(
+      "UPDATE posts SET ai_score = ?, ai_label = ? WHERE post_id = ?",
+      [aiResult.score, aiResult.label, postId]
+    );
 
     res.json({
       success: true,
-      scamScore: Math.min(100, Math.max(0, scamScore)),
-      label,
-      reasons,
+      ...aiResult,
       metrics: {
         upvotes,
         downvotes,
-        comments: commentCount,
-        totalEngagement: totalVotes + commentCount
+        comments: post.commentCount
       }
     });
 
   } catch (err) {
     console.log("ANALYZE SCAM ERROR:", err);
-    res.status(500).json({ success: false, error: "Server error" });
+    res.status(500).json({ 
+      success: false, 
+      message: "AI Analysis Error: " + (err.message || "Unknown error"),
+      details: err.message 
+    });
   }
 };
